@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+:root { --green: #15803d; --ink: #1e293b; --paper: #f8faf9; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: Arial, "Noto Sans Thai", sans-serif; }
+button, input, select { font: inherit; }
+@media print { .no-print { display: none !important; } body { background: white; } }
