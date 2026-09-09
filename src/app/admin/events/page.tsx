@@ -1,7 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { DriveEventDiscoveryPanel } from "../../../components/interview-queue/drive-event-discovery-panel";
 
 type EventStatus = "draft" | "active" | "closed";
 type Event = { id: string; name: string; event_date: string; status: EventStatus };
@@ -93,8 +92,6 @@ export default function AdminEventsPage() {
           </label>
         </div>
 
-        <DriveEventDiscoveryPanel onImported={loadEvents} />
-
         {message && <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
 
         <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -121,7 +118,6 @@ export default function AdminEventsPage() {
                         {event.status !== "active" && <button onClick={() => void updateStatus(event.id, "active")} className="rounded-lg border border-emerald-200 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50">เปิดใช้งาน</button>}
                         {event.status !== "closed" && <button onClick={() => void updateStatus(event.id, "closed")} className="rounded-lg border border-amber-200 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50">ปิด Event</button>}
                         {event.status !== "draft" && <button onClick={() => void updateStatus(event.id, "draft")} className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">กลับเป็นร่าง</button>}
-                        <Link href="/admin/interview-queue/sync" className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">ผูก/ซิงก์ Sheet</Link>
                       </div>
                     </td>
                   </tr>

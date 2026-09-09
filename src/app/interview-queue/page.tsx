@@ -1,2 +1,3 @@
 import { QueueDashboard } from "@/components/interview-queue/queue-dashboard";
-export default function InterviewQueuePage() { return <QueueDashboard />; }
+import { QueueSidebar } from "@/components/interview-queue/queue-sidebar";
+export default function InterviewQueuePage() { return <><QueueSidebar /><QueueDashboard /></>; }

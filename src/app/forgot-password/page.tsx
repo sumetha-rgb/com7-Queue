@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <main className="min-h-screen grid place-items-center p-6 bg-emerald-950">
+      <main className="login-page min-h-screen grid place-items-center p-6">
         <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-xl">
           <p className="text-sm font-semibold text-emerald-700">COM7 Recruitment</p>
           <h1 className="mt-1 text-xl font-bold">ตรวจสอบอีเมลของคุณ</h1>
@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="min-h-screen grid place-items-center p-6 bg-emerald-950">
+    <main className="login-page min-h-screen grid place-items-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
         <p className="text-sm font-semibold text-emerald-700">COM7 Recruitment</p>
         <h1 className="mt-1 text-2xl font-bold">ลืมรหัสผ่าน</h1>

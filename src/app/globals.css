@@ -1,7 +1,115 @@
 @import "tailwindcss";
 
-:root { --green: #15803d; --ink: #1e293b; --paper: #f8faf9; }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--paper); color: var(--ink); font-family: Arial, "Noto Sans Thai", sans-serif; }
-button, input, select { font: inherit; }
-@media print { .no-print { display: none !important; } body { background: white; } }
+:root {
+  --green: #398878;
+  --ink: #253b38;
+  --paper: #f8fbfa;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Arial, "Noto Sans Thai", sans-serif;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+.bg-emerald-900 {
+  background-color: #3f9a84 !important;
+}
+.bg-emerald-700 {
+  background-color: #398878 !important;
+}
+.text-emerald-700 {
+  color: #2f7d6d !important;
+}
+.text-emerald-900 {
+  color: #2d6258 !important;
+}
+.login-page {
+  background: linear-gradient(135deg, #f5fbf8 0%, #ffffff 52%, #e9f6f1 100%);
+}
+.login-card {
+  border: 1px solid #dcece6;
+  box-shadow: 0 18px 50px rgba(36, 95, 84, 0.1);
+}
+.login-mark {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 14px;
+  background: #e3f4ee;
+  color: #2f7d6d;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.login-input {
+  border-color: #d8e6e1;
+  background: #fbfdfc;
+}
+.login-input:focus {
+  border-color: #55aa96;
+  box-shadow: 0 0 0 3px rgba(85, 170, 150, 0.16);
+}
+.login-button {
+  background: #398878;
+  box-shadow: 0 8px 18px rgba(57, 136, 120, 0.18);
+}
+@media (min-width: 1024px) {
+  body:has(aside.fixed.inset-y-0) > main {
+    padding-left: 16rem;
+  }
+  body:has(aside.fixed.inset-y-0) > main.queue-history-page {
+    padding-left: 18rem;
+  }
+}
+main table tbody tr td:first-child span[data-queue-display] {
+  font-size: 0;
+}
+main table tbody tr td:first-child span[data-queue-display]::after {
+  content: attr(data-queue-display);
+  font-size: 0.875rem;
+}
+
+div.fixed.inset-0.z-50 {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+}
+div.fixed.inset-0.z-50 > section {
+  width: 100%;
+  max-width: 410px;
+  border-radius: 24px;
+}
+div.fixed.inset-0.z-50 > section > div:first-child {
+  background: #15803d;
+  padding: 24px 24px 20px;
+}
+div.fixed.inset-0.z-50 > section > div:first-child p:nth-of-type(2) {
+  font-size: 54px;
+  line-height: 1;
+  margin: 4px 0 12px;
+}
+div.fixed.inset-0.z-50 > section > div:nth-child(2) {
+  padding: 14px 24px 6px;
+}
+div.fixed.inset-0.z-50 > section > div:nth-child(2) + div {
+  padding: 10px 24px 14px;
+}
+div.fixed.inset-0.z-50 > section select {
+  border-radius: 12px;
+}
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
