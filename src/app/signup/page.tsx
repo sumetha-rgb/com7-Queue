@@ -34,7 +34,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen grid place-items-center p-6 bg-emerald-950">
+    <main className="min-h-screen grid place-items-center p-6 bg-white">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
         <p className="text-sm font-semibold text-emerald-700">COM7 Recruitment</p>
         <h1 className="mt-1 text-2xl font-bold">สมัครสมาชิก</h1>
