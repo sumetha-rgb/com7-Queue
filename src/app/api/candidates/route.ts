@@ -26,8 +26,34 @@ export async function GET(request: Request) {
     else if (eventIds.length > 1) query = query.in("event_id", eventIds);
     if (category === "พนักงานหน้าร้าน" || category === "ออฟฟิศ") query = query.eq("employee_category", category);
     if (search) query = query.or(`full_name.ilike.%${search}%,phone_number.ilike.%${search}%,email.ilike.%${search}%,position_applied.ilike.%${search}%,interview_id.ilike.%${search}%`);
-    const { data, count, error } = await query.order("created_at", { ascending: false }).range((page - 1) * limit, page * limit - 1);
+    // The dashboard used to make a second request solely for these totals. Load
+    // its small aggregate input alongside the list request so the initial view
+    // needs one authenticated HTTP request instead of two.
+    let summaryCandidates = supabase
+      .from("candidates")
+      .select("id", { count: "exact", head: true })
+      .eq("is_visible", true);
+    let summaryTickets = supabase
+      .from("queue_tickets")
+      .select("candidate_id,check_in_status,interview_status,email_status,queue_date,created_at")
+      .order("queue_date", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (eventIds.length === 1) {
+      summaryCandidates = summaryCandidates.eq("event_id", eventIds[0]);
+      summaryTickets = summaryTickets.eq("event_id", eventIds[0]);
+    } else if (eventIds.length > 1) {
+      summaryCandidates = summaryCandidates.in("event_id", eventIds);
+      summaryTickets = summaryTickets.in("event_id", eventIds);
+    }
+    const [listResult, summaryCountResult, summaryTicketsResult] = await Promise.all([
+      query.order("created_at", { ascending: false }).range((page - 1) * limit, page * limit - 1),
+      summaryCandidates,
+      summaryTickets,
+    ]);
+    const { data, count, error } = listResult;
     if (error) throw error;
+    if (summaryCountResult.error) throw summaryCountResult.error;
+    if (summaryTicketsResult.error) throw summaryTicketsResult.error;
     const candidateIds = (data ?? []).map((candidate) => candidate.id);
     const { data: tickets, error: ticketsError } = candidateIds.length
       ? await supabase
@@ -79,6 +105,22 @@ export async function GET(request: Request) {
     if (checkInStatus === "no_show") candidates = candidates.filter((candidate) => candidate.queue_tickets[0]?.interview_status === "ไม่เข้าร่วม");
     if (emailStatus === "pending") candidates = candidates.filter((candidate) => candidate.queue_tickets[0]?.email_status !== "sent");
     if (emailStatus === "sent") candidates = candidates.filter((candidate) => candidate.queue_tickets[0]?.email_status === "sent");
-    return NextResponse.json({ candidates, pagination: { page, limit, total: count ?? 0 } });
+    const latestSummaryTickets = new Map<string, (typeof summaryTicketsResult.data)[number]>();
+    for (const ticket of summaryTicketsResult.data ?? []) {
+      if (!latestSummaryTickets.has(ticket.candidate_id)) {
+        latestSummaryTickets.set(ticket.candidate_id, ticket);
+      }
+    }
+    const currentTickets = [...latestSummaryTickets.values()];
+    const total = summaryCountResult.count ?? 0;
+    const summary = {
+      total,
+      checkedIn: currentTickets.filter((ticket) => ticket.check_in_status === "เช็คชื่อแล้ว").length,
+      pending: Math.max(0, total - currentTickets.length),
+      interviewed: currentTickets.filter((ticket) => ticket.interview_status === "สัมภาษณ์แล้ว").length,
+      noShow: currentTickets.filter((ticket) => ticket.interview_status === "ไม่เข้าร่วม").length,
+      emailSent: currentTickets.filter((ticket) => ticket.email_status === "sent").length,
+    };
+    return NextResponse.json({ candidates, pagination: { page, limit, total: count ?? 0 }, summary });
   } catch (error) { return toErrorResponse(error, "ไม่สามารถดึงรายชื่อได้"); }
 }

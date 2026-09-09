@@ -102,6 +102,7 @@ export function QueueDashboard() {
   const [month, setMonth] = useState(thisMonth);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [driveEvents, setDriveEvents] = useState<DriveEventOption[]>([]);
+  const [driveLoading, setDriveLoading] = useState(false);
   const [driveSearch, setDriveSearch] = useState("");
   const [eventId, setEventId] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
@@ -159,15 +160,11 @@ export function QueueDashboard() {
   }, [events]);
 
   const loadEvents = useCallback(async () => {
-    const [eventsResponse, driveResponse] = await Promise.all([
-      fetch(`/api/events?month=${month}`, { cache: "no-store" }),
-      fetch("/api/google-drive/events", { cache: "no-store" }),
-    ]);
+    const eventsResponse = await fetch(`/api/events?month=${month}`, { cache: "no-store" });
 
     const data = await eventsResponse.json();
-    const driveData = await driveResponse.json();
 
-    if (eventsResponse.status === 401 || driveResponse.status === 401) {
+    if (eventsResponse.status === 401) {
       returnToLogin();
       return;
     }
@@ -195,8 +192,23 @@ export function QueueDashboard() {
           availableEvents[0]?.id ??
           ""),
     );
-    setDriveEvents(driveResponse.ok ? (driveData.items ?? []) : []);
   }, [month, returnToLogin]);
+
+  const loadDriveEvents = useCallback(async () => {
+    if (driveLoading || driveEvents.length) return;
+    setDriveLoading(true);
+    try {
+      const response = await fetch("/api/google-drive/events");
+      const data = await response.json();
+      if (response.status === 401) {
+        returnToLogin();
+        return;
+      }
+      setDriveEvents(response.ok ? (data.items ?? []) : []);
+    } finally {
+      setDriveLoading(false);
+    }
+  }, [driveEvents.length, driveLoading, returnToLogin]);
 
   const loadQueue = useCallback(
     async (background = false) => {
@@ -216,23 +228,16 @@ export function QueueDashboard() {
       if (emailStatus !== "all") query.set("emailStatus", emailStatus);
 
       try {
-        const [listResponse, summaryResponse] = await Promise.all([
-          fetch(`/api/candidates?${query}`, { cache: "no-store" }),
-          fetch(`/api/dashboard/interview-queue?eventIds=${selectedEventIds.join(",")}`, {
-            cache: "no-store",
-          }),
-        ]);
-
+        const listResponse = await fetch(`/api/candidates?${query}`, { cache: "no-store" });
         const list = await listResponse.json();
-        const dashboard = await summaryResponse.json();
 
-        if (listResponse.status === 401 || summaryResponse.status === 401) {
+        if (listResponse.status === 401) {
           returnToLogin();
           return;
         }
 
         setItems(list.candidates ?? []);
-        setSummary(summaryResponse.ok ? dashboard : empty);
+        setSummary(listResponse.ok ? (list.summary ?? empty) : empty);
 
         if (!listResponse.ok && !background) {
           setNotice(list.message ?? "ไม่สามารถโหลดรายชื่อได้");
@@ -249,12 +254,17 @@ export function QueueDashboard() {
       preferredEventId.current =
         new URLSearchParams(window.location.search).get("event") ||
         window.localStorage.getItem("com7-last-queue-event");
+      // Start the queue request immediately on repeat visits. Event metadata
+      // will still replace this with the grouped event IDs when it arrives.
+      if (/^[0-9a-f-]{36}$/i.test(preferredEventId.current ?? "")) {
+        setEventId(preferredEventId.current!);
+      }
     }
     void loadEvents();
   }, [loadEvents]);
 
   useEffect(() => {
-    const timer = setTimeout(() => void loadQueue(), 250);
+    const timer = setTimeout(() => void loadQueue(), 100);
     return () => clearTimeout(timer);
   }, [loadQueue]);
 
@@ -547,9 +557,13 @@ export function QueueDashboard() {
             <div className="relative min-w-64 md:w-72">
               <input
                 value={driveSearch}
-                onChange={(event) => setDriveSearch(event.target.value)}
-                disabled={connecting || driveEvents.length === 0}
-                placeholder={driveEvents.length ? "ค้นหา Google Sheet จาก Drive" : "ไม่พบ Google Sheet ใน Drive"}
+                onFocus={() => void loadDriveEvents()}
+                onChange={(event) => {
+                  setDriveSearch(event.target.value);
+                  void loadDriveEvents();
+                }}
+                disabled={connecting || driveLoading}
+                placeholder={driveLoading ? "กำลังโหลด Google Sheet..." : "ค้นหา Google Sheet จาก Drive"}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm disabled:text-slate-400"
               />
               {driveSearch && filteredDriveEvents.length > 0 && (

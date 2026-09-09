@@ -51,6 +51,10 @@ export async function GET() {
           eventStatus: event?.status ?? null,
         };
       }),
+    }, {
+      // Drive discovery is independent of the live queue. A short private
+      // cache avoids repeatedly waiting on Google when the page is refreshed.
+      headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" },
     });
   } catch (error) {
     return toErrorResponse(error, "ไม่สามารถอ่านโฟลเดอร์ Drive ได้");
