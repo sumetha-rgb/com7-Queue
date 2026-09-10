@@ -10,6 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import { QueueTicketModal } from "./queue-ticket-modal";
+import { getCachedPageState, setCachedPageState } from "@/lib/page-state-cache";
 
 type Ticket = {
   id: string;
@@ -70,6 +71,20 @@ const empty: Summary = {
 
 const thisMonth = "";
 
+type QueueDashboardState = {
+  month: string;
+  events: EventOption[];
+  driveEvents: DriveEventOption[];
+  driveSearch: string;
+  eventId: string;
+  items: Candidate[];
+  summary: Summary;
+  search: string;
+  category: string;
+  checkInStatus: string;
+  emailStatus: string;
+};
+
 function Badge({ value }: { value: string }) {
   const label =
     value === "pending"
@@ -96,24 +111,39 @@ function Badge({ value }: { value: string }) {
   );
 }
 
-export function QueueDashboard() {
-  const LegacyQueueTicketModal = QueueTicketModal;
+// เรียงคิวจากน้อยไปมาก โดยรายการที่ยังไม่มีคิว (ยังไม่เช็คชื่อ) จะไปอยู่ท้ายสุด
+function sortByQueueNo(list: Candidate[]) {
+  return [...list].sort((a, b) => {
+    const queueA = a.queue_tickets[0]?.queue_no;
+    const queueB = b.queue_tickets[0]?.queue_no;
 
-  const [month, setMonth] = useState(thisMonth);
-  const [events, setEvents] = useState<EventOption[]>([]);
-  const [driveEvents, setDriveEvents] = useState<DriveEventOption[]>([]);
+    if (queueA == null && queueB == null) return 0;
+    if (queueA == null) return 1;
+    if (queueB == null) return -1;
+
+    return queueA - queueB;
+  });
+}
+
+export function QueueDashboard() {
+  const cachedState = useMemo(() => getCachedPageState<QueueDashboardState>("queue-dashboard"), []);
+  const restoredFromCache = useRef(Boolean(cachedState));
+
+  const [month, setMonth] = useState(cachedState?.month ?? thisMonth);
+  const [events, setEvents] = useState<EventOption[]>(cachedState?.events ?? []);
+  const [driveEvents, setDriveEvents] = useState<DriveEventOption[]>(cachedState?.driveEvents ?? []);
   const [driveLoading, setDriveLoading] = useState(false);
-  const [driveSearch, setDriveSearch] = useState("");
-  const [eventId, setEventId] = useState("");
+  const [driveSearch, setDriveSearch] = useState(cachedState?.driveSearch ?? "");
+  const [eventId, setEventId] = useState(cachedState?.eventId ?? "");
   const [sheetUrl, setSheetUrl] = useState("");
   const [newEventName, setNewEventName] = useState("");
   const [showEventNameDialog, setShowEventNameDialog] = useState(false);
-  const [items, setItems] = useState<Candidate[]>([]);
-  const [summary, setSummary] = useState<Summary>(empty);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
-  const [checkInStatus, setCheckInStatus] = useState("all");
-  const [emailStatus, setEmailStatus] = useState("all");
+  const [items, setItems] = useState<Candidate[]>(cachedState?.items ?? []);
+  const [summary, setSummary] = useState<Summary>(cachedState?.summary ?? empty);
+  const [search, setSearch] = useState(cachedState?.search ?? "");
+  const [category, setCategory] = useState(cachedState?.category ?? "all");
+  const [checkInStatus, setCheckInStatus] = useState(cachedState?.checkInStatus ?? "all");
+  const [emailStatus, setEmailStatus] = useState(cachedState?.emailStatus ?? "all");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -121,6 +151,8 @@ export function QueueDashboard() {
   const [eventPickerOpen, setEventPickerOpen] = useState(false);
   const preferredEventId = useRef<string | null>(null);
   const syncInFlight = useRef(false);
+
+  const sortedItems = useMemo(() => sortByQueueNo(items), [items]);
 
   const chooseEvent = useCallback((id: string) => {
     setEventId(id);
@@ -250,12 +282,11 @@ export function QueueDashboard() {
   );
 
   useEffect(() => {
+    if (restoredFromCache.current) return;
     if (typeof window !== "undefined") {
       preferredEventId.current =
         new URLSearchParams(window.location.search).get("event") ||
         window.localStorage.getItem("com7-last-queue-event");
-      // Start the queue request immediately on repeat visits. Event metadata
-      // will still replace this with the grouped event IDs when it arrives.
       if (/^[0-9a-f-]{36}$/i.test(preferredEventId.current ?? "")) {
         setEventId(preferredEventId.current!);
       }
@@ -264,9 +295,20 @@ export function QueueDashboard() {
   }, [loadEvents]);
 
   useEffect(() => {
+    if (restoredFromCache.current) {
+      restoredFromCache.current = false;
+      return;
+    }
     const timer = setTimeout(() => void loadQueue(), 100);
     return () => clearTimeout(timer);
   }, [loadQueue]);
+
+  useEffect(() => {
+    setCachedPageState<QueueDashboardState>("queue-dashboard", {
+      month, events, driveEvents, driveSearch, eventId, items, summary,
+      search, category, checkInStatus, emailStatus,
+    });
+  }, [month, events, driveEvents, driveSearch, eventId, items, summary, search, category, checkInStatus, emailStatus]);
 
   useEffect(() => {
     if (!selectedEvent?.event_ids.length) return;
@@ -503,7 +545,7 @@ export function QueueDashboard() {
             รายชื่อจาก Google Sheet · เช็คชื่อ ออกคิว และส่งอีเมลจากระบบนี้
           </p>
 
-            <div className="mt-5 grid gap-2 md:grid-cols-[150px_1fr]">
+          <div className="mt-5 grid gap-2 md:grid-cols-[150px_1fr]">
             <input
               type="month"
               value={month}
@@ -553,8 +595,8 @@ export function QueueDashboard() {
             </div>
           </div>
 
-          <div className="mt-2 flex flex-wrap gap-2">
-            <div className="relative min-w-64 md:w-72">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <div className="relative w-full sm:min-w-64 sm:w-72">
               <input
                 value={driveSearch}
                 onFocus={() => void loadDriveEvents()}
@@ -588,12 +630,12 @@ export function QueueDashboard() {
               value={sheetUrl}
               onChange={(e) => setSheetUrl(e.target.value)}
               placeholder="วางลิงก์ Google Sheet สำหรับ Event ใหม่"
-              className="min-w-64 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm"
+              className="w-full min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm sm:min-w-64"
             />
             <button
               disabled={!sheetUrl.trim() || connecting}
               onClick={requestConnection}
-              className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm disabled:text-slate-400"
+              className="w-full rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-800 shadow-sm disabled:text-slate-400 sm:w-auto"
             >
               {connecting ? "กำลังโหลด..." : "เชื่อมต่อ Sheet"}
             </button>
@@ -621,8 +663,8 @@ export function QueueDashboard() {
           ))}
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-3">
-          <label className="flex min-w-64 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
+          <label className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 sm:min-w-64 sm:flex-1">
             <Search className="h-4 w-4 text-slate-400" />
             <input
               value={search}
@@ -635,7 +677,7 @@ export function QueueDashboard() {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 sm:w-auto"
           >
             <option value="all">กลุ่มงาน: ทั้งหมด</option>
             <option>พนักงานหน้าร้าน</option>
@@ -644,7 +686,7 @@ export function QueueDashboard() {
           <select
             value={checkInStatus}
             onChange={(e) => setCheckInStatus(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 sm:w-auto"
           >
             <option value="all">สถานะเช็คชื่อ: ทั้งหมด</option>
             <option value="no_queue">ยังไม่มีคิว</option>
@@ -657,7 +699,7 @@ export function QueueDashboard() {
           <select
             value={emailStatus}
             onChange={(e) => setEmailStatus(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 sm:w-auto"
           >
             <option value="all">สถานะอีเมล: ทั้งหมด</option>
             <option value="pending">ยังไม่ส่ง Email</option>
@@ -672,76 +714,113 @@ export function QueueDashboard() {
         )}
 
         <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500">
-              <tr>
-                {[
-                  "คิว",
-                  "กลุ่มงาน",
-                  "ชื่อ-สกุล",
-                  "ตำแหน่ง",
-                  "ช่วงเวลา",
-                  "เช็คชื่อ",
-                  "สัมภาษณ์",
-                  "Email",
-                ].map((title) => (
-                  <th className="p-3" key={title}>
-                    {title}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
                 <tr>
-                  <td colSpan={8} className="p-10 text-center text-slate-400">
-                    กำลังโหลดข้อมูล...
-                  </td>
+                  {[
+                    "คิว",
+                    "กลุ่มงาน",
+                    "ชื่อ-สกุล",
+                    "ตำแหน่ง",
+                    "ช่วงเวลา",
+                    "เช็คชื่อ",
+                    "สัมภาษณ์",
+                    "Email",
+                  ].map((title) => (
+                    <th className="whitespace-nowrap p-3" key={title}>
+                      {title}
+                    </th>
+                  ))}
                 </tr>
-              ) : (
-                items.map((candidate) => {
-                  const ticket = candidate.queue_tickets[0];
-                  return (
-                    <tr
-                      key={candidate.id}
-                      onClick={() => setSelected(candidate)}
-                      className="cursor-pointer border-t border-slate-100 hover:bg-emerald-50"
-                    >
-                      <td className="p-3 font-bold text-emerald-700">
-                        {ticket ? `#${ticket.queue_no}` : "-"}
-                      </td>
-                      <td className="p-3">{candidate.employee_category}</td>
-                      <td className="p-3 font-medium">{candidate.full_name}</td>
-                      <td className="p-3">
-                        {candidate.position_applied ?? "-"}
-                      </td>
-                      <td className="p-3">
-                        {candidate.interview_period ?? "-"}
-                      </td>
-                      <td className="p-3">
-                        <Badge
-                          value={ticket?.check_in_status ?? "ยังไม่เช็คชื่อ"}
-                        />
-                      </td>
-                      <td className="p-3">
-                        <Badge
-                          value={ticket?.interview_status ?? "ยังไม่สัมภาษณ์"}
-                        />
-                      </td>
-                      <td className="p-3">
-                        <Badge value={ticket?.email_status ?? "pending"} />
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="p-10 text-center text-slate-400">
+                      กำลังโหลดข้อมูล...
+                    </td>
+                  </tr>
+                ) : (
+                  sortedItems.map((candidate) => {
+                    const ticket = candidate.queue_tickets[0];
+                    return (
+                      <tr
+                        key={candidate.id}
+                        onClick={() => setSelected(candidate)}
+                        className="cursor-pointer border-t border-slate-100 hover:bg-emerald-50"
+                      >
+                        <td className="whitespace-nowrap p-3 font-bold text-emerald-700">
+                          {ticket ? `#${ticket.queue_no}` : "-"}
+                        </td>
+                        <td className="whitespace-nowrap p-3">{candidate.employee_category}</td>
+                        <td className="whitespace-nowrap p-3 font-medium">{candidate.full_name}</td>
+                        <td className="whitespace-nowrap p-3">
+                          {candidate.position_applied ?? "-"}
+                        </td>
+                        <td className="whitespace-nowrap p-3">
+                          {candidate.interview_period ?? "-"}
+                        </td>
+                        <td className="whitespace-nowrap p-3">
+                          <Badge
+                            value={ticket?.check_in_status ?? "ยังไม่เช็คชื่อ"}
+                          />
+                        </td>
+                        <td className="whitespace-nowrap p-3">
+                          <Badge
+                            value={ticket?.interview_status ?? "ยังไม่สัมภาษณ์"}
+                          />
+                        </td>
+                        <td className="whitespace-nowrap p-3">
+                          <Badge value={ticket?.email_status ?? "pending"} />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile card list */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {loading ? (
+              <p className="p-10 text-center text-slate-400">กำลังโหลดข้อมูล...</p>
+            ) : sortedItems.length === 0 ? (
+              <p className="p-10 text-center text-slate-400">ไม่พบข้อมูล</p>
+            ) : (
+              sortedItems.map((candidate) => {
+                const ticket = candidate.queue_tickets[0];
+                return (
+                  <button
+                    key={candidate.id}
+                    onClick={() => setSelected(candidate)}
+                    className="flex w-full items-start justify-between gap-3 p-4 text-left active:bg-emerald-50"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800">{candidate.full_name}</p>
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {candidate.position_applied ?? "-"} · {candidate.employee_category}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Badge value={ticket?.check_in_status ?? "ยังไม่เช็คชื่อ"} />
+                        <Badge value={ticket?.interview_status ?? "ยังไม่สัมภาษณ์"} />
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-lg font-bold text-emerald-700">
+                      {ticket ? `#${ticket.queue_no}` : "-"}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
       </section>
 
       {selected && (
-        <LegacyQueueTicketModal
+        <QueueTicketModal
           candidate={selected}
           eventName={selectedEvent?.name ?? ""}
           onClose={() => setSelected(null)}
@@ -786,106 +865,5 @@ export function QueueDashboard() {
         </div>
       )}
     </main>
-  );
-}
-
-function LegacyQueueTicketModal({
-  candidate,
-  eventName,
-  onClose,
-  onCheckIn,
-  onStatusChange,
-}: {
-  candidate: Candidate;
-  eventName: string;
-  onClose: () => void;
-  onCheckIn: (candidate: Candidate) => Promise<void>;
-  onStatusChange: (ticketId: string, status: string) => Promise<void>;
-}) {
-  const ticket = candidate.queue_tickets[0];
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4">
-      <section className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
-        <div className="bg-emerald-700 p-7 text-white">
-          <button
-            onClick={onClose}
-            className="float-right rounded-full bg-white/20 px-3 py-1 text-xl"
-          >
-            ×
-          </button>
-          <p className="text-sm text-emerald-100">ลำดับคิว</p>
-          <p className="text-6xl font-bold">
-            {ticket ? `#${ticket.queue_no}` : "-"}
-          </p>
-          <h2 className="mt-4 text-2xl font-bold">{candidate.full_name}</h2>
-          <p className="mt-1 text-sm text-emerald-100">{eventName}</p>
-        </div>
-
-        <div className="space-y-5 p-7">
-          <div className="flex gap-2">
-            <Badge value={ticket?.check_in_status ?? "ยังไม่เช็คชื่อ"} />
-            <Badge value={ticket?.interview_status ?? "ยังไม่สัมภาษณ์"} />
-          </div>
-
-          <Detail
-            label="ตำแหน่งที่สมัคร"
-            value={candidate.position_applied ?? "-"}
-          />
-          <Detail
-            label="ช่วงเวลาสัมภาษณ์"
-            value={candidate.interview_period ?? "-"}
-          />
-
-          {ticket ? (
-            <>
-              <Detail
-                label="เวลาเช็คชื่อ"
-                value={new Date(ticket.checked_in_at).toLocaleString("th-TH")}
-              />
-              <label className="block text-sm font-semibold text-slate-500">
-                ปรับสถานะสัมภาษณ์
-                <select
-                  defaultValue={ticket.interview_status}
-                  disabled={busy}
-                  onChange={async (e) => {
-                    setBusy(true);
-                    await onStatusChange(ticket.id, e.target.value);
-                    setBusy(false);
-                  }}
-                  className="mt-2 block w-full rounded-xl border border-slate-200 px-3 py-3 text-slate-800"
-                >
-                  <option>ยังไม่สัมภาษณ์</option>
-                  <option>สัมภาษณ์แล้ว</option>
-                  <option>ไม่เข้าร่วม</option>
-                </select>
-              </label>
-            </>
-          ) : (
-            <button
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                await onCheckIn(candidate);
-                setBusy(false);
-              }}
-              className="w-full rounded-xl bg-emerald-700 py-4 text-base font-bold text-white disabled:bg-slate-300"
-            >
-              {busy ? "กำลังออกคิวและส่งอีเมล..." : "เช็คชื่อ & ออกบัตรคิว"}
-            </button>
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-b border-slate-100 pb-4">
-      <p className="text-sm text-slate-400">{label}</p>
-      <p className="mt-1 font-semibold text-slate-800">{value}</p>
-    </div>
   );
 }

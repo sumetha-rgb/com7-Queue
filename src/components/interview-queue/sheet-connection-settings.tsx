@@ -2,6 +2,7 @@
 
 import { Link2Off, Settings2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { getCachedPageState, setCachedPageState } from "@/lib/page-state-cache";
 
 type Connection = {
   id: string;
@@ -14,9 +15,10 @@ type Connection = {
 };
 
 export function SheetConnectionSettings() {
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const cachedState = getCachedPageState<{ connections: Connection[]; message: string }>("sheet-settings");
+  const [connections, setConnections] = useState<Connection[]>(cachedState?.connections ?? []);
+  const [loading, setLoading] = useState(!cachedState);
+  const [message, setMessage] = useState(cachedState?.message ?? "");
 
   const loadConnections = useCallback(async () => {
     setLoading(true);
@@ -36,8 +38,12 @@ export function SheetConnectionSettings() {
   }, []);
 
   useEffect(() => {
-    void loadConnections();
+    if (!cachedState) void loadConnections();
   }, [loadConnections]);
+
+  useEffect(() => {
+    setCachedPageState("sheet-settings", { connections, message });
+  }, [connections, message]);
 
   async function disconnect(connection: Connection) {
     if (

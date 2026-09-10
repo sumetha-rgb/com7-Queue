@@ -33,5 +33,77 @@ export function QueueTicketModal({ candidate, eventName, onClose, onCheckIn, onS
   const [interviewStatus, setInterviewStatus] = useState(ticket?.interview_status ?? "ยังไม่สัมภาษณ์");
   useEffect(() => { setInterviewStatus(ticket?.interview_status ?? "ยังไม่สัมภาษณ์"); }, [ticket?.id, ticket?.interview_status]);
   const checkedIn = ticket?.check_in_status === "เช็คชื่อแล้ว";
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm" onClick={onClose}><section className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="bg-emerald-700 p-7 text-white"><button onClick={onClose} className="float-right rounded-full bg-white/20 px-3 py-1 text-xl">x</button><p className="text-sm text-emerald-100">ลำดับคิว</p><p className="text-6xl font-bold">{ticket ? ticket.queue_no : "-"}</p><h2 className="mt-4 text-2xl font-bold">{candidate.full_name}</h2><p className="mt-1 text-sm text-emerald-100">{eventName}</p></div><div className="space-y-1 p-7"><div className="mb-3 flex flex-wrap gap-2"><Badge value={ticket?.check_in_status ?? "ยังไม่เช็คชื่อ"} /><Badge value={ticket?.interview_status ?? "ยังไม่สัมภาษณ์"} /><Badge value={ticket?.email_status ?? "pending"} /></div><Detail icon={Users} label="ตำแหน่งที่สมัคร" value={candidate.position_applied ?? "-"} /><Detail icon={Clock3} label="วันที่สัมภาษณ์" value={thaiDate(candidate.interview_date)} /><Detail icon={Clock3} label="ช่วงเวลาสัมภาษณ์" value={candidate.interview_period ?? "-"} />{ticket && <><Detail icon={UserRoundCheck} label="เวลาเช็คชื่อ" value={new Date(ticket.checked_in_at).toLocaleString("th-TH")} green={checkedIn} /><Detail icon={UserCheck} label="ผู้เช็คชื่อ" value={ticket.checked_in_by_name ?? "-"} /></>}{ticket ? <label className="block pt-4 text-sm font-semibold text-slate-500">ปรับสถานะสัมภาษณ์<select value={interviewStatus} disabled={busy} onChange={async (event) => { const nextStatus = event.target.value; setInterviewStatus(nextStatus); setBusy(true); try { await onStatusChange(ticket.id, nextStatus); } catch { setInterviewStatus(ticket.interview_status); } finally { setBusy(false); } }} className="mt-2 block h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800"><option>ยังไม่สัมภาษณ์</option><option>สัมภาษณ์แล้ว</option><option>ไม่เข้าร่วม</option></select></label> : <button disabled={busy} onClick={async () => { setBusy(true); await onCheckIn(candidate); setBusy(false); }} className="mt-5 w-full rounded-xl bg-emerald-700 py-4 text-base font-bold text-white disabled:bg-slate-300">{busy ? "กำลังออกคิวและส่งอีเมล..." : "กดเช็คชื่อ & ออกบัตรคิว"}</button>}</div></section></div>;
+  return (
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-0 backdrop-blur-sm sm:grid sm:place-items-center sm:p-4"
+      onClick={onClose}
+    >
+      <section
+        className="mx-auto min-h-full w-full max-w-lg bg-white shadow-2xl sm:min-h-0 sm:max-h-[90vh] sm:overflow-y-auto sm:rounded-3xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 bg-emerald-700 p-7 text-white">
+          <button onClick={onClose} className="float-right rounded-full bg-white/20 px-3 py-1 text-xl">x</button>
+          <p className="text-sm text-emerald-100">ลำดับคิว</p>
+          <p className="text-6xl font-bold">{ticket ? ticket.queue_no : "-"}</p>
+          <h2 className="mt-4 text-2xl font-bold">{candidate.full_name}</h2>
+          <p className="mt-1 text-sm text-emerald-100">{eventName}</p>
+        </div>
+        <div className="space-y-1 p-7 pb-10">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Badge value={ticket?.check_in_status ?? "ยังไม่เช็คชื่อ"} />
+            <Badge value={ticket?.interview_status ?? "ยังไม่สัมภาษณ์"} />
+            <Badge value={ticket?.email_status ?? "pending"} />
+          </div>
+          <Detail icon={Users} label="ตำแหน่งที่สมัคร" value={candidate.position_applied ?? "-"} />
+          <Detail icon={Clock3} label="วันที่สัมภาษณ์" value={thaiDate(candidate.interview_date)} />
+          <Detail icon={Clock3} label="ช่วงเวลาสัมภาษณ์" value={candidate.interview_period ?? "-"} />
+          {ticket && (
+            <>
+              <Detail icon={UserRoundCheck} label="เวลาเช็คชื่อ" value={new Date(ticket.checked_in_at).toLocaleString("th-TH")} green={checkedIn} />
+              <Detail icon={UserCheck} label="ผู้เช็คชื่อ" value={ticket.checked_in_by_name ?? "-"} />
+            </>
+          )}
+          {ticket ? (
+            <label className="block pt-4 text-sm font-semibold text-slate-500">
+              ปรับสถานะสัมภาษณ์
+              <select
+                value={interviewStatus}
+                disabled={busy}
+                onChange={async (event) => {
+                  const nextStatus = event.target.value;
+                  setInterviewStatus(nextStatus);
+                  setBusy(true);
+                  try {
+                    await onStatusChange(ticket.id, nextStatus);
+                  } catch {
+                    setInterviewStatus(ticket.interview_status);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="mt-2 block h-12 w-full rounded-xl border border-slate-200 px-3 text-slate-800"
+              >
+                <option>ยังไม่สัมภาษณ์</option>
+                <option>สัมภาษณ์แล้ว</option>
+                <option>ไม่เข้าร่วม</option>
+              </select>
+            </label>
+          ) : (
+            <button
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                await onCheckIn(candidate);
+                setBusy(false);
+              }}
+              className="mt-5 w-full rounded-xl bg-emerald-700 py-4 text-base font-bold text-white disabled:bg-slate-300"
+            >
+              {busy ? "กำลังออกคิวและส่งอีเมล..." : "กดเช็คชื่อ & ออกบัตรคิว"}
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
 }

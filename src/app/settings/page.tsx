@@ -5,7 +5,9 @@ export default function SettingsPage() {
   return (
     <>
       <QueueSidebar />
-      <SheetConnectionSettings />
+      <div className="lg:pl-64">
+        <SheetConnectionSettings />
+      </div>
     </>
   );
 }
