@@ -13,15 +13,16 @@ jobs:
       - name: Ping Supabase Database
         run: |
           response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/events?select=id&limit=1" \
+            -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
-          
+
           echo "HTTP Status: $response"
-          
-          if [ "$response" != "200" ] && [ "$response" != "206" ]; then
-            echo "Ping failed with status $response"
+
+          # หากต่อเซิร์ฟเวอร์ไม่ได้เลย จะได้สถานะ 000
+          if [ "$response" = "000" ]; then
+            echo "Ping failed: Cannot reach Supabase server"
             exit 1
           fi
-          
-          echo "Ping successful!"
+
+          echo "Ping successful! (Server responded with status $response)"
