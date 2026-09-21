@@ -1,0 +1,27 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # รันทุกวันอาทิตย์และวันพุธ เวลา 00:00 UTC (ประมาณ 07:00 น. ไทย)
+    - cron: '0 0 * * 0,3'
+  workflow_dispatch: # กดรันเองได้
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Database
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/events?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
+          
+          echo "HTTP Status: $response"
+          
+          if [ "$response" != "200" ] && [ "$response" != "206" ]; then
+            echo "Ping failed with status $response"
+            exit 1
+          fi
+          
+          echo "Ping successful!"
